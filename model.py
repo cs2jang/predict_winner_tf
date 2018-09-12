@@ -212,13 +212,11 @@ class Model:
         for epoch in range(train_epoch):
             summary, c, _ = self.train(train_x_home, train_x_away, train_y, keep_prob)
             acc = self.get_accuracy(train_x_home, train_x_away, train_y)
-            self.merged = tf.summary.merge_all()
             if epoch % print_num == 0:
                 self.train_writer.add_summary(summary, epoch)
                 print("Epoch: {}, Cost: {}, Accuracy: {}".format(epoch, c, acc))
 
     def run_test(self, test_x_home, test_x_away, test_y):
-        self.merged = tf.summary.merge_all()
         accuracy = self.get_accuracy(test_x_home, test_x_away, test_y)
         print("Test data Accuracy : ", accuracy)
         summary, prediction = self.test(test_x_home, test_x_away)
