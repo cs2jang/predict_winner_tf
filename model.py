@@ -21,6 +21,7 @@ class Model:
         self.merged = None
         self.train_writer = None
         self.test_writer = None
+        self.accuracy = None
 
     # region [Functions]
     def get_weight(self, name, w_size):
@@ -195,6 +196,11 @@ class Model:
         summary, _cost, _opt = self.sess.run([self.merged, self.cost, self.optimizer], feed_dict=train_feed)
         return summary, _cost, _opt
 
+    def test(self, test_x_home, test_x_away, keep_prob=1.0):
+        test_feed = {self.X_home: test_x_home, self.X_away: test_x_away, self.keep_prob: keep_prob}
+        summary, prediction = self.sess.run([self.merged, self.hypothesis], feed_dict=test_feed)
+        return summary, prediction
+
     def predict(self, home_x_data, away_x_data, keep_prob=1.0):
         feed = {self.X_home: home_x_data, self.X_away: away_x_data, self.keep_prob: keep_prob}
         prediction = self.sess.run(self.hypothesis, feed_dict=feed)
@@ -206,14 +212,17 @@ class Model:
         for epoch in range(train_epoch):
             summary, c, _ = self.train(train_x_home, train_x_away, train_y, keep_prob)
             acc = self.get_accuracy(train_x_home, train_x_away, train_y)
+            self.merged = tf.summary.merge_all()
             if epoch % print_num == 0:
                 self.train_writer.add_summary(summary, epoch)
                 print("Epoch: {}, Cost: {}, Accuracy: {}".format(epoch, c, acc))
 
     def run_test(self, test_x_home, test_x_away, test_y):
+        self.merged = tf.summary.merge_all()
         accuracy = self.get_accuracy(test_x_home, test_x_away, test_y)
         print("Test data Accuracy : ", accuracy)
-        prediction = self.predict(test_x_home, test_x_away)
+        summary, prediction = self.test(test_x_home, test_x_away)
+        self.test_writer.add_summary(summary)
         for p, y in zip(prediction, test_y):
             print(p, y)
     # endregion [NN]

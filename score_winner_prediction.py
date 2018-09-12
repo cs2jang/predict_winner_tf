@@ -23,6 +23,11 @@ def main(_):
         keep_prob=0.8,
         print_num=100
     )
+    model.run_test(
+        test_x_home=pre_processor.test_x_home,
+        test_x_away=pre_processor.test_x_away,
+        test_y=pre_processor.test_y
+    )
     model.closer()
 
 
