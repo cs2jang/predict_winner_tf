@@ -55,28 +55,18 @@ class Preprocessor:
     # endregion [Params]
 
     def open_file(self):
-        with open('data/predict_score/top_hitter_hra.csv', 'rb') as f:
+        with open('data/top_hitter_hra.csv', 'rb') as f:
             f_result = chardet.detect(f.read())  # or readline if the file is large
-            df_top_hitter_hra = pd.read_csv('data/predict_score/top_hitter_hra.csv', encoding=f_result['encoding'])
-            df_bottom_hitter_hra = pd.read_csv('data/predict_score/bottom_hitter_hra.csv', encoding=f_result['encoding'])
-            df_pitchers = pd.read_csv('data/predict_score/pitchers_era.csv', encoding=f_result['encoding'])
-            df_scores = pd.read_csv('data/predict_score/score.csv', encoding=f_result['encoding'])
-
-        df_top_hra_ = df_top_hitter_hra.loc[:, ['GMKEY', 'hitter_hra']]
-        df_top_hra = (df_top_hra_.groupby('GMKEY')
-                      .apply(lambda x: [len(x)] + x.hitter_hra.tolist())
-                      .apply(pd.Series)
-                      .add_prefix('top_hra')
-                      .reset_index()).drop(['top_hra0'], axis=1)
+            df_top_hitter_hra = pd.read_csv('data/top_hitter_hra.csv', encoding=f_result['encoding'])
+            df_bottom_hitter_hra = pd.read_csv('data/bottom_hitter_hra.csv', encoding=f_result['encoding'])
+            df_pitchers = pd.read_csv('data/pitchers_era.csv', encoding=f_result['encoding'])
+            df_scores = pd.read_csv('data/score.csv', encoding=f_result['encoding'])
 
         df_t_hra = self.get_hra(df_top_hitter_hra, 'T')
         df_b_hra = self.get_hra(df_bottom_hitter_hra, 'B')
 
         df_t_pitchers = df_pitchers[df_pitchers['TB'] == 'T'].drop(['TB', 'PCODE', 'NAME'], axis=1)
         df_b_pitchers = df_pitchers[df_pitchers['TB'] == 'B'].drop(['TB', 'PCODE', 'NAME'], axis=1)
-
-        # df_t_scores = df_scores[['GMKEY', 'TPOINT']]
-        # df_b_scores = df_scores[['GMKEY', 'BPOINT']]
 
         df_t_pitcher = df_t_pitchers.rename(columns={"pitcher_era": "top_pitcher_era"})
         df_b_pitcher = df_b_pitchers.rename(columns={"pitcher_era": "bottom_pitcher_era"})

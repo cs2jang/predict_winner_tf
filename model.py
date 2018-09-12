@@ -9,7 +9,7 @@ class Model:
         self._learning_rate = 0.01
         self._training_epoch = 1000
         self._sess = None
-        self.train_writer = tf.summary.FileWriter('./logs/train ', self.sess.graph)
+        self.train_writer = None
         self.hypothesis = None
         self.X_home = None
         self.X_away = None
@@ -17,6 +17,10 @@ class Model:
         self.keep_prob = None
         self.cost = None
         self.optimizer = None
+        self.log_dir = "./logs/"
+        self.merged = None
+        self.train_writer = None
+        self.test_writer = None
 
     # region [Functions]
     def get_weight(self, name, w_size):
@@ -29,9 +33,14 @@ class Model:
     @staticmethod
     def get_layer(act, w_in, w_out, b, drop=None):
         layer = act(tf.add(tf.matmul(w_in, w_out), b))
-        if drop:
+        if drop is not None:
             layer = tf.nn.dropout(layer, keep_prob=drop)
         return layer
+
+    def closer(self):
+        self.train_writer.close()
+        self.test_writer.close()
+        self.sess.close()
     # endregion [Functions]
 
     # region [Hyper Params]
@@ -74,10 +83,10 @@ class Model:
             tf.summary.scalar('min', tf.reduce_min(var))
             tf.summary.histogram('histogram', var)
 
-    def merge_summaries(self, counter=None):
-        merge = tf.summary.merge_all()
-        summary = self.sess.run(merge)
-        self.train_writer.add_summary(summary, counter)
+    def set_summary(self):
+        self.merged = tf.summary.merge_all()
+        self.train_writer = tf.summary.FileWriter(self.log_dir + '/train', self.sess.graph)
+        self.test_writer = tf.summary.FileWriter(self.log_dir + '/test')
     # endregion [TF Board]
 
     # region [NN]
@@ -124,8 +133,8 @@ class Model:
                     'b3': self.get_bias('b3', [n_merged]),
                     'b4': self.get_bias('b4', [output_size]),
                 }
-                for i, bias in biases.items():
-                    self.variable_summaries(bias)
+                # for i, bias in biases.items():
+                #     self.variable_summaries(bias)
 
             with tf.name_scope('layers'):
                 h_l_1 = self.get_layer(act, self.X_home, weights['w1_home'], biases['b1_home'], self.keep_prob)
@@ -156,13 +165,13 @@ class Model:
                 tf.summary.histogram('hypothesis', self.hypothesis)
 
         with tf.name_scope('cost'):
-            self.cost = tf.reduce_mean(tf.square(self.hypothesis - self.Y))
+            self.cost = tf.reduce_mean(tf.square(tf.subtract(self.hypothesis, self.Y)))
             tf.summary.scalar('cost', self.cost)
         with tf.name_scope('train'):
             self.optimizer = tf.train.AdamOptimizer(learning_rate=self._learning_rate).minimize(self.cost)
 
-    def get_accuracy(self, home_x_data, away_x_data, y_data, keep_prob=1.0):
-        data_feed = {self.X_home: home_x_data, self.X_away: away_x_data, self.Y: y_data, self.keep_prob: keep_prob}
+    def get_accuracy(self, home_x_data, away_x_data, data_y, keep_prob=1.0):
+        data_feed = {self.X_home: home_x_data, self.X_away: away_x_data, self.Y: data_y, self.keep_prob: keep_prob}
         predict = self.sess.run(self.hypothesis, feed_dict=data_feed)
 
         prediction = tf.map_fn(
@@ -173,29 +182,38 @@ class Model:
 
         answer = tf.map_fn(
             lambda x: x[0] > x[1],
-            y_data,
+            data_y,
             dtype=bool
         )
-
-        accuracy = tf.divide(tf.reduce_sum(tf.cast(tf.equal(prediction, answer), dtype=tf.int32)), len(y_data))
+        with tf.name_scope('accuracy'):
+            accuracy = tf.divide(tf.reduce_sum(tf.cast(tf.equal(prediction, answer), dtype=tf.int32)), len(data_y))
+            tf.summary.scalar('accuracy', accuracy)
         return self.sess.run(accuracy)
 
-    def train(self, home_x_train, away_x_train, y_train, keep_prob):
-        train_feed = {self.X_home: home_x_train, self.X_away: away_x_train, self.Y: y_train, self.keep_prob: keep_prob}
-        _cost, _opt = self.sess.run([self.cost, self.optimizer], feed_dict=train_feed)
-        return _cost, _opt
+    def train(self, train_x_home, train_x_away, train_y, keep_prob):
+        train_feed = {self.X_home: train_x_home, self.X_away: train_x_away, self.Y: train_y, self.keep_prob: keep_prob}
+        summary, _cost, _opt = self.sess.run([self.merged, self.cost, self.optimizer], feed_dict=train_feed)
+        return summary, _cost, _opt
 
     def predict(self, home_x_data, away_x_data, keep_prob=1.0):
         feed = {self.X_home: home_x_data, self.X_away: away_x_data, self.keep_prob: keep_prob}
         prediction = self.sess.run(self.hypothesis, feed_dict=feed)
         return prediction
 
-    def run_train(self, train_epoch: int, home_x_train, away_x_train, y_train, keep_prob=0.8, print_num=100):
+    def run_train(self, train_epoch: int, train_x_home, train_x_away, train_y, keep_prob=0.8, print_num=100):
+        self.set_summary()
         self.sess.run(tf.global_variables_initializer())
         for epoch in range(train_epoch):
-            c, _ = self.train(home_x_train, away_x_train, y_train, keep_prob)
-            acc = self.get_accuracy(home_x_train, away_x_train, y_train)
+            summary, c, _ = self.train(train_x_home, train_x_away, train_y, keep_prob)
+            acc = self.get_accuracy(train_x_home, train_x_away, train_y)
             if epoch % print_num == 0:
-                self.merge_summaries(epoch)
+                self.train_writer.add_summary(summary, epoch)
                 print("Epoch: {}, Cost: {}, Accuracy: {}".format(epoch, c, acc))
+
+    def run_test(self, test_x_home, test_x_away, test_y):
+        accuracy = self.get_accuracy(test_x_home, test_x_away, test_y)
+        print("Test data Accuracy : ", accuracy)
+        prediction = self.predict(test_x_home, test_x_away)
+        for p, y in zip(prediction, test_y):
+            print(p, y)
     # endregion [NN]
