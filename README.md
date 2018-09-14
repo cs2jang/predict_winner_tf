@@ -13,7 +13,7 @@ It's good for applying machine learning algorithms to baseball data sets to deri
 It's not completed yet. Keep improving the accuracy.
 
 ## Project Screen Shots
-![tensorboard_image](https://github.com/cs2jang/predict_winner_tf/blob/master/img/layout.png)
+![tensorboard_image](https://github.com/cs2jang/predict_winner_tf/blob/master/img/layout2.png)
 - This image is the summary of my model.
 
 ## Reference
